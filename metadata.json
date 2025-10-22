@@ -1,0 +1,7 @@
+{
+  "name": "ThisIsUs -Creative Suite",
+  "description": "An AI-powered creative suite that transforms ordinary photos into professional, cinematic, and hyperrealistic marketing visuals, complete with tailored marketing copy, captions, and video ad scripts.",
+  "requestFramePermissions": [
+    "microphone"
+  ]
+}
