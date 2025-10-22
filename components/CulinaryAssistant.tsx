@@ -1,8 +1,17 @@
-import React, { useState } from 'react';
+import React, { useState, useRef } from 'react';
 import { generateCookingSuggestions } from '../services/geminiService';
 import type { Recipe, GroundingSource } from '../types';
 import { Loader } from './Loader';
-import { LinkIcon } from './icons';
+import { LinkIcon, ClockIcon, ChevronDownIcon } from './icons';
+
+const SUGGESTIONS = [
+    'Comida Boricua',
+    'Cubano',
+    'Italian Eats',
+    'Chinese',
+    'Japanese cuisine',
+    'Comfort Food'
+];
 
 export const CulinaryAssistant: React.FC = () => {
     const [query, setQuery] = useState('');
@@ -10,28 +19,49 @@ export const CulinaryAssistant: React.FC = () => {
     const [sources, setSources] = useState<GroundingSource[]>([]);
     const [isGenerating, setIsGenerating] = useState(false);
     const [error, setError] = useState<string | null>(null);
+    const [openRecipeIndex, setOpenRecipeIndex] = useState<number | null>(null);
+    const [lastQuery, setLastQuery] = useState('');
+    const seenRecipesRef = useRef<string[]>([]);
 
-    const handleGenerate = async () => {
+
+    const handleGenerate = async (queryOverride?: string) => {
+        const currentQuery = queryOverride || query;
+        if (!currentQuery.trim()) return;
+
+        if (currentQuery.toLowerCase() !== lastQuery.toLowerCase()) {
+            seenRecipesRef.current = [];
+        }
+        setLastQuery(currentQuery);
+
         setIsGenerating(true);
         setError(null);
         setSuggestions([]);
         setSources([]);
+        setOpenRecipeIndex(null);
         try {
-            const result = await generateCookingSuggestions(query);
+            const result = await generateCookingSuggestions(currentQuery, seenRecipesRef.current);
+            const newTitles = result.suggestions.map(s => s.title);
+            seenRecipesRef.current.push(...newTitles);
+
             setSuggestions(result.suggestions);
             setSources(result.sources);
         } catch (err) {
             console.error("Recipe generation failed:", err);
-            setError("Sorry, I couldn't generate suggestions. Please check the console for details and try again.");
+            setError("Sorry, I couldn't generate suggestions. The format from the AI was unexpected. Please try a different query.");
         } finally {
             setIsGenerating(false);
         }
+    };
+    
+    const handleSuggestionClick = (suggestion: string) => {
+        setQuery(suggestion);
+        handleGenerate(suggestion);
     };
 
     return (
         <div className="max-w-4xl mx-auto animate-fade-in-up">
             <h2 className="text-4xl font-extrabold text-amber-400 sm:text-5xl text-center">Culinary Corner</h2>
-            <p className="mt-4 text-lg text-gray-400 text-center">Feeling hungry? Tell Rose what you're craving, and she'll search the web for ideas.</p>
+            <p className="mt-4 text-lg text-gray-400 text-center">Feeling hungry? Tell Rose what you're craving, or pick a suggestion below.</p>
             
             <div className="mt-8 space-y-6">
                 <textarea
@@ -42,7 +72,19 @@ export const CulinaryAssistant: React.FC = () => {
                     rows={3}
                 />
                 
-                <button onClick={handleGenerate} disabled={isGenerating || !query} className="w-full bg-amber-600 text-white font-bold py-3 px-6 rounded-lg hover:bg-amber-500 transition-all duration-300 ease-in-out disabled:bg-gray-600 disabled:cursor-not-allowed flex items-center justify-center gap-2">
+                <div className="flex flex-wrap justify-center gap-3">
+                    {SUGGESTIONS.map((suggestion) => (
+                        <button
+                            key={suggestion}
+                            onClick={() => handleSuggestionClick(suggestion)}
+                            className="px-4 py-2 bg-gray-700/50 text-amber-300 text-sm rounded-full border border-gray-600 hover:bg-amber-600 hover:text-white hover:border-amber-600 transition-colors"
+                        >
+                            {suggestion}
+                        </button>
+                    ))}
+                </div>
+                
+                <button onClick={() => handleGenerate()} disabled={isGenerating || !query} className="w-full bg-amber-600 text-white font-bold py-3 px-6 rounded-lg hover:bg-amber-500 transition-all duration-300 ease-in-out disabled:bg-gray-600 disabled:cursor-not-allowed flex items-center justify-center gap-2">
                     {isGenerating ? <Loader /> : 'Get Suggestions'}
                 </button>
             </div>
@@ -59,28 +101,49 @@ export const CulinaryAssistant: React.FC = () => {
                 {error && <p className="text-center text-red-400">{error}</p>}
 
                 {suggestions.length > 0 && (
-                    <div className="space-y-8">
+                    <div className="space-y-4 animate-fade-in">
                         <h3 className="text-3xl font-bold text-amber-300 text-center">Here are some ideas from Rose!</h3>
                         {suggestions.map((recipe, index) => (
-                            <div key={index} className="bg-black/50 p-6 rounded-2xl border border-gray-700 shadow-2xl shadow-black/30">
-                                <h4 className="text-2xl font-bold text-amber-400">{recipe.title}</h4>
-                                <p className="text-gray-400 mt-2 mb-4 italic">"{recipe.description}"</p>
-                                <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
-                                    <div className="md:col-span-1">
-                                        <h5 className="font-semibold text-lg text-amber-300 mb-2">Ingredients</h5>
-                                        <ul className="list-disc list-inside space-y-1 text-gray-300 text-sm">
-                                            {recipe.ingredients.map((item, i) => <li key={i}>{item}</li>)}
-                                        </ul>
-                                    </div>
-                                    <div className="md:col-span-2">
-                                        <h5 className="font-semibold text-lg text-amber-300 mb-2">Instructions</h5>
-                                        <ol className="list-decimal list-inside space-y-2 text-gray-300 text-sm">
-                                            {recipe.instructions.map((step, i) => <li key={i}>{step}</li>)}
-                                        </ol>
+                            <div key={index} className="bg-black/50 rounded-2xl border border-gray-700 shadow-2xl shadow-black/30 overflow-hidden transition-all duration-300">
+                                <button
+                                    onClick={() => setOpenRecipeIndex(openRecipeIndex === index ? null : index)}
+                                    className="w-full text-left p-6 flex justify-between items-center hover:bg-gray-800/50"
+                                >
+                                    <h4 className="text-2xl font-bold text-amber-400">{recipe.title}</h4>
+                                    <ChevronDownIcon className={`w-6 h-6 text-gray-400 transition-transform duration-300 ${openRecipeIndex === index ? 'rotate-180' : ''}`} />
+                                </button>
+                                <div className={`transition-all duration-500 ease-in-out overflow-hidden ${openRecipeIndex === index ? 'max-h-full' : 'max-h-0'}`}>
+                                    <div className="px-6 pb-6 pt-2">
+                                        <div className="flex items-center gap-4 text-gray-400 mb-4 border-t border-gray-700 pt-4">
+                                            <ClockIcon className="w-5 h-5" />
+                                            <span className="text-sm font-medium">{recipe.cookTime}</span>
+                                        </div>
+                                        <p className="text-gray-400 mt-2 mb-4 italic">"{recipe.description}"</p>
+                                        <div className="grid grid-cols-1 md:grid-cols-3 gap-8">
+                                            <div className="md:col-span-1">
+                                                <h5 className="font-semibold text-lg text-amber-300 mb-2">Ingredients</h5>
+                                                <ul className="list-disc list-inside space-y-1 text-gray-300 text-sm">
+                                                    {recipe.ingredients.map((item, i) => <li key={i}>{item}</li>)}
+                                                </ul>
+                                            </div>
+                                            <div className="md:col-span-2">
+                                                <h5 className="font-semibold text-lg text-amber-300 mb-2">Instructions</h5>
+                                                <ol className="list-decimal list-inside space-y-3 text-gray-300 text-sm">
+                                                    {recipe.instructions.map((step, i) => <li key={i}>{step}</li>)}
+                                                </ol>
+                                            </div>
+                                        </div>
                                     </div>
                                 </div>
                             </div>
                         ))}
+                         {!isGenerating && (
+                            <div className="flex justify-center pt-4">
+                                <button onClick={() => handleGenerate()} className="w-full sm:w-auto bg-gray-700 text-amber-300 font-bold py-3 px-6 rounded-lg hover:bg-gray-600 transition-all duration-300 ease-in-out">
+                                    Refresh or Refine Suggestions
+                                </button>
+                            </div>
+                        )}
                     </div>
                 )}
                 

@@ -73,7 +73,7 @@ You are a senior marketing strategist. Generate a creative suite of marketing co
 IMPORTANT: Provide the output as a valid JSON object adhering to this structure: { "postIdeas": ["idea1", "idea2", "idea3"], "captions": ["caption1", "caption2", "caption3"], "hashtags": ["hashtag1", "hashtag2", ...] }. Ensure the final output is ONLY the JSON object and nothing else.`;
 
     const response = await ai.models.generateContent({
-        model: "gemini-2.5-flash",
+        model: "gemini-2.5-pro",
         contents: {
             parts: [
                 { inlineData: { data: base64Image, mimeType } },
@@ -249,48 +249,36 @@ Updated Profile:
 };
 
 export const generateCookingSuggestions = async (
-    query: string
+    query: string,
+    excludeTitles: string[] = []
 ): Promise<{ suggestions: Recipe[], sources: GroundingSource[] }> => {
     try {
+        let exclusionPrompt = '';
+        if (excludeTitles.length > 0) {
+            exclusionPrompt = `\n\nIMPORTANT: To ensure variety, do NOT suggest any of the following recipes that have already been shown to the user: ${excludeTitles.join(', ')}. Provide completely new and different suggestions.`;
+        }
+        
         const prompt = `You are an expert chef and culinary assistant named "Rose". A user needs recipe suggestions.
         
 User's Request: "${query}"
 
 You have access to Google Search for inspiration. Your task is to:
 1. Analyze the user's request and use Google Search to find relevant, popular, or unique ideas.
-2. Synthesize this information to create 2-3 distinct and creative recipe suggestions that match the user's request.
-3. For each recipe, provide a title, a brief compelling description, a list of ingredients, and step-by-step instructions.
-4. Ensure the response is in a valid JSON format according to the provided schema. Do not include any text outside the JSON object.`;
+2. Synthesize this information to create 3-5 distinct and creative recipe suggestions.
+3. For each recipe, provide a title, a brief compelling description, the estimated cook time (e.g., "Approx. 45 minutes"), a list of ingredients, and step-by-step instructions.
+4. All output, including titles, descriptions, ingredients, and instructions, must be in English. If you find a recipe in another language, translate it fully to English.${exclusionPrompt}
+5. IMPORTANT: Ensure the final response is ONLY a single, valid JSON object. The JSON object must conform to this structure: { "suggestions": [ { "title": "...", "description": "...", "cookTime": "...", "ingredients": [...], "instructions": [...] } ] }. Do not include any text or markdown formatting outside the JSON object.`;
 
         const response = await ai.models.generateContent({
             model: 'gemini-2.5-pro',
             contents: prompt,
             config: {
                 tools: [{ googleSearch: {} }],
-                responseMimeType: "application/json",
-                responseSchema: {
-                    type: Type.OBJECT,
-                    properties: {
-                        suggestions: {
-                            type: Type.ARRAY,
-                            items: {
-                                type: Type.OBJECT,
-                                properties: {
-                                    title: { type: Type.STRING },
-                                    description: { type: Type.STRING },
-                                    ingredients: { type: Type.ARRAY, items: { type: Type.STRING } },
-                                    instructions: { type: Type.ARRAY, items: { type: Type.STRING } },
-                                },
-                                required: ["title", "description", "ingredients", "instructions"],
-                            }
-                        }
-                    },
-                    required: ["suggestions"],
-                }
             }
         });
 
-        const suggestions = JSON.parse(response.text).suggestions || [];
+        const parsedData = cleanAndParseJson(response.text);
+        const suggestions = parsedData.suggestions || [];
         
         const groundingChunks = response.candidates?.[0]?.groundingMetadata?.groundingChunks || [];
         const sources: GroundingSource[] = groundingChunks

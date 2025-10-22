@@ -1,3 +1,4 @@
+// FIX: Removed self-import which was causing declaration conflicts with the locally defined types.
 
 export interface ImageFile {
   file: File;
@@ -49,6 +50,7 @@ export interface UserProfile extends Record<string, any> {
 export interface Recipe {
   title: string;
   description: string;
+  cookTime: string;
   ingredients: string[];
   instructions: string[];
 }
