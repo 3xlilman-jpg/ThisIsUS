@@ -352,7 +352,7 @@ const App: React.FC = () => {
 
       <footer className="w-full text-center p-4 mt-8 border-t border-gray-800 flex-shrink-0">
           <div className="container mx-auto text-xs text-gray-500">
-              <p>&copy; {new Date().getFullYear()} ThisIsUs Creative Suite. All Rights Reserved.</p>
+              <p>&copy; {new Date().getFullYear()} ThisIsUs. All Rights Reserved.</p>
               <div className="mt-2 space-x-4">
                   <button onClick={() => setIsPrivacyModalVisible(true)} className="hover:text-amber-400 transition-colors">Privacy Policy</button>
                   <span>|</span>
@@ -387,8 +387,11 @@ const App: React.FC = () => {
               </ul>
 
               <h3 className="text-xl font-bold text-amber-400">3. Third-Party Services</h3>
-              <p>We utilize Google's Gemini API to power our AI features. Information you provide (images, text, voice data) is sent to Google for processing. We encourage you to review <a href="https://policies.google.com/privacy" target="_blank" rel="noopener noreferrer" className="text-amber-300 underline">Google's Privacy Policy</a> to understand how they handle data.</p>
-              
+              <div className="space-y-4">
+                <p><strong>Google Gemini API:</strong> We utilize Google's Gemini API to power our AI features. Information you provide (images, text, voice data) is sent to Google for processing. We encourage you to review <a href="https://policies.google.com/privacy" target="_blank" rel="noopener noreferrer" className="text-amber-300 underline">Google's Privacy Policy</a> to understand how they handle data.</p>
+                <p><strong>TikTok Integration (Future Feature):</strong> To enable features like "Post to TikTok," we will need to interact with the TikTok platform. When you authorize this feature, information such as the generated video or image content may be shared with TikTok to create a post on your behalf. We recommend you review <a href="https://www.tiktok.com/legal/page/us/privacy-policy/en" target="_blank" rel="noopener noreferrer" className="text-amber-300 underline">TikTok's Privacy Policy</a> to understand how they handle your data.</p>
+              </div>
+
               <h3 className="text-xl font-bold text-amber-400">4. Data Security & Storage</h3>
               <p>Your conversation history and user profile are stored in your browser's `localStorage`. This means the data resides on your computer and is specific to the browser you use. Clearing your browser's cache or storage will delete this data permanently. We do not have a central server that stores this personal information.</p>
 
