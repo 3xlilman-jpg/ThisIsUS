@@ -112,8 +112,15 @@ export const CulinaryAssistant: React.FC = () => {
                                     <h4 className="text-2xl font-bold text-amber-400">{recipe.title}</h4>
                                     <ChevronDownIcon className={`w-6 h-6 text-gray-400 transition-transform duration-300 ${openRecipeIndex === index ? 'rotate-180' : ''}`} />
                                 </button>
-                                <div className={`transition-all duration-500 ease-in-out overflow-hidden ${openRecipeIndex === index ? 'max-h-full' : 'max-h-0'}`}>
+                                <div className={`transition-all duration-500 ease-in-out overflow-hidden ${openRecipeIndex === index ? 'max-h-[2000px]' : 'max-h-0'}`}>
                                     <div className="px-6 pb-6 pt-2">
+                                        {recipe.imageUrl && (
+                                            <img 
+                                                src={recipe.imageUrl} 
+                                                alt={`A delicious photo of ${recipe.title}`}
+                                                className="w-full h-64 object-cover rounded-lg mb-6 shadow-lg shadow-black/40"
+                                            />
+                                        )}
                                         <div className="flex items-center gap-4 text-gray-400 mb-4 border-t border-gray-700 pt-4">
                                             <ClockIcon className="w-5 h-5" />
                                             <span className="text-sm font-medium">{recipe.cookTime}</span>

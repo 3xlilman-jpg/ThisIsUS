@@ -41,16 +41,14 @@ export const FileUpload: React.FC<FileUploadProps> = ({ onFileSelect }) => {
   };
 
   return (
-    <div className="max-w-3xl mx-auto text-center">
-        <h2 className="text-4xl font-extrabold text-amber-400 sm:text-5xl">Your Instant Creative Suite</h2>
-        <p className="mt-4 text-lg text-gray-400">Upload an image to generate professional visuals and copy in seconds.</p>
-
+    <div className="mt-8 text-left">
+        <label className="text-lg font-semibold text-gray-300">2. Upload your product image</label>
         <div 
           onDrop={handleDrop}
           onDragOver={handleDragOver}
           onDragEnter={handleDragEnter}
           onDragLeave={handleDragLeave}
-          className={`mt-10 p-8 border-2 border-dashed rounded-2xl transition-all duration-300 ${isDragging ? 'border-amber-400 bg-amber-500/10' : 'border-gray-600 hover:border-amber-500/50'}`}
+          className={`mt-2 p-8 border-2 border-dashed rounded-2xl transition-all duration-300 text-center ${isDragging ? 'border-amber-400 bg-amber-500/10' : 'border-gray-600 hover:border-amber-500/50'}`}
         >
             <input
                 type="file"

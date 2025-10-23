@@ -11,13 +11,13 @@ const ai = new GoogleGenAI({ apiKey: API_KEY });
 const getStylePrompt = (style: string): string => {
   switch (style) {
     case 'Cinematic':
-      return "Transform this product photo into a cinematic marketing visual. Apply dramatic lighting, rich color grading, and a shallow depth of field to create a premium, movie-poster feel. The object should be the clear hero of the shot.";
+      return "First, perfectly isolate the main product from its original background. Then, place the isolated product into a new, visually stunning cinematic environment. Apply dramatic lighting, rich color grading, and a shallow depth of field to the entire scene to create a premium, movie-poster feel. The product should be the clear hero of the shot, seamlessly integrated into the new, highly appealing marketing background.";
     case 'Hyperreal':
-      return "Enhance this product photo to be hyperrealistic for a high-impact marketing campaign. Sharpen every detail, perfect the textures to make them look tangible, and use ultra-realistic lighting to create a sense of presence and quality.";
+      return "First, perfectly isolate the main product from its original background. Then, place the isolated product on a new, visually appealing background that complements its features. Enhance the product to be hyperrealistic for a high-impact marketing campaign. Sharpen every detail, perfect the textures to make them look tangible, and use ultra-realistic lighting across the entire composition to create a sense of presence and quality. The background should enhance the product, not distract from it.";
     case 'Studio Pro':
-      return "Recreate this image as a professional studio product shot. Place the object against a clean, minimalist studio background (like a soft gray or a seamless white infinity cove). Apply perfect, diffused studio lighting to eliminate harsh shadows and highlight the product's form and features elegantly.";
+      return "First, perfectly isolate the main product from its original background. Then, recreate this image as a professional studio product shot. Place the isolated object against a clean, minimalist, and visually appealing studio background (like a soft gray, a seamless white infinity cove, or a textured surface that adds elegance). Apply perfect, diffused studio lighting to eliminate harsh shadows and highlight the product's form and features elegantly. The final image should look like a high-end professional advertisement.";
     default:
-      return "Enhance this image for a professional marketing campaign.";
+      return "First, perfectly isolate the main product from its original background. Then, place it on a new, visually appealing background suitable for a professional marketing campaign. Enhance the overall image to look polished and ready for advertising.";
   }
 };
 
@@ -191,7 +191,13 @@ export const generateProactiveInsight = async (context: InsightContext): Promise
       },
     });
 
-    return response.text.trim();
+    const text = response.text;
+    if (text) {
+        return text.trim();
+    }
+    
+    console.warn("Proactive insight generation returned no text. Full response:", response);
+    return "Let's move on to the next step!";
 
   } catch (error) {
     console.error("Error generating proactive insight:", error);
@@ -248,6 +254,31 @@ Updated Profile:
   }
 };
 
+const generateFoodImage = async (title: string, description: string): Promise<string> => {
+    try {
+        const prompt = `Generate a highly appealing, professional food photography shot of "${title}". The dish should look delicious and be presented beautifully. Key elements from the description to capture are: "${description}". The style should be vibrant, with good lighting, and a shallow depth of field to make the food the hero. This is for a recipe website.`;
+
+        const response = await ai.models.generateContent({
+            model: 'gemini-2.5-flash-image',
+            contents: {
+                parts: [{ text: prompt }],
+            },
+            config: {
+                responseModalities: [Modality.IMAGE],
+            },
+        });
+
+        const firstPart = response.candidates?.[0]?.content?.parts?.[0];
+        if (firstPart?.inlineData) {
+            return `data:${firstPart.inlineData.mimeType};base64,${firstPart.inlineData.data}`;
+        }
+        throw new Error('No image data returned for food image.');
+    } catch (error) {
+        console.error(`Error generating food image for "${title}":`, error);
+        throw error;
+    }
+};
+
 export const generateCookingSuggestions = async (
     query: string,
     excludeTitles: string[] = []
@@ -278,7 +309,23 @@ You have access to Google Search for inspiration. Your task is to:
         });
 
         const parsedData = cleanAndParseJson(response.text);
-        const suggestions = parsedData.suggestions || [];
+        const textSuggestions: Omit<Recipe, 'imageUrl'>[] = parsedData.suggestions || [];
+
+        if (textSuggestions.length === 0) {
+            return { suggestions: [], sources: [] };
+        }
+
+        const suggestionsWithImages = await Promise.all(
+            textSuggestions.map(async (recipe) => {
+                try {
+                    const imageUrl = await generateFoodImage(recipe.title, recipe.description);
+                    return { ...recipe, imageUrl };
+                } catch (imageError) {
+                    console.error(`Could not generate image for ${recipe.title}, using a placeholder.`, imageError);
+                    return { ...recipe, imageUrl: 'https://placehold.co/600x400/0a0a0a/fbbf24/png?text=Image+Not+Available' };
+                }
+            })
+        );
         
         const groundingChunks = response.candidates?.[0]?.groundingMetadata?.groundingChunks || [];
         const sources: GroundingSource[] = groundingChunks
@@ -286,7 +333,7 @@ You have access to Google Search for inspiration. Your task is to:
             .filter((web: any) => web?.uri && web?.title)
             .map((web: any) => ({ uri: web.uri, title: web.title }));
         
-        return { suggestions, sources };
+        return { suggestions: suggestionsWithImages, sources };
 
     } catch (error) {
         console.error("Error generating cooking suggestions:", error);

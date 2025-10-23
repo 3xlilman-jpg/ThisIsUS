@@ -61,8 +61,6 @@ interface Transcription {
     isFinal: boolean;
 }
 
-const AVAILABLE_VOICES = ['Zephyr', 'Puck', 'Charon', 'Kore', 'Fenrir'];
-
 interface Sentence {
     id: string;
     text: string;
@@ -116,9 +114,7 @@ export const AssistantPanel: React.FC<AssistantPanelProps> = ({
     const [audioOutputDevices, setAudioOutputDevices] = useState<MediaDeviceInfo[]>([]);
     const [selectedOutputDevice, setSelectedOutputDevice] = useState<string>('default');
 
-    const [selectedVoice, setSelectedVoice] = useState<string>(() => {
-        return localStorage.getItem(`${currentUser}_selectedRoseVoice`) || 'Zephyr';
-    });
+    const selectedVoice = 'Zephyr';
 
     const [sentences, setSentences] = useState<Sentence[]>([]);
     const [currentSentenceIndex, setCurrentSentenceIndex] = useState(0);
@@ -148,13 +144,6 @@ export const AssistantPanel: React.FC<AssistantPanelProps> = ({
         userProfileRef.current = userProfile;
     }, [userProfile]);
 
-
-    useEffect(() => {
-        if(currentUser) {
-            localStorage.setItem(`${currentUser}_selectedRoseVoice`, selectedVoice);
-        }
-    }, [selectedVoice, currentUser]);
-
     useEffect(() => {
         const newSentences = conversationHistory.flatMap((turn, turnIndex) => {
             const splitSentences = turn.text.match(/[^.!?]+[.!?]+/g) || [turn.text];
@@ -179,7 +168,7 @@ export const AssistantPanel: React.FC<AssistantPanelProps> = ({
             setAudioOutputDevices(devices.filter(device => device.kind === 'audiooutput'));
         } catch (error) {
             console.error("Could not get microphone permissions to list devices:", error);
-            setStatus("Error: Mic required");
+            setStatus("Error: Mic permission denied.");
         }
     }, []);
 
@@ -217,7 +206,6 @@ export const AssistantPanel: React.FC<AssistantPanelProps> = ({
             inputAudioContextRef.current = null;
         }
 
-        // Stop any currently playing audio
         if (sources.current.size > 0) {
             for (const source of sources.current.values()) {
                 try { source.stop(); } catch(e) {/* ignore errors on already stopped sources */}
@@ -231,9 +219,10 @@ export const AssistantPanel: React.FC<AssistantPanelProps> = ({
         setLiveUserTranscript('');
         setLiveAssistantTranscript('');
 
-        // Final turn update logic
-        const lastUserTurnIndex = findLastIndex(conversationHistory, t => t.speaker === 'user' && t.isFinal);
-        const lastAssistantTurnIndex = findLastIndex(conversationHistory, t => t.speaker === 'assistant' && t.isFinal);
+        // FIX: Explicitly type `t` as `ConversationTurn` to fix TypeScript inference issue.
+        const lastUserTurnIndex = findLastIndex(conversationHistory, (t: ConversationTurn) => t.speaker === 'user' && t.isFinal);
+        // FIX: Explicitly type `t` as `ConversationTurn` to fix TypeScript inference issue.
+        const lastAssistantTurnIndex = findLastIndex(conversationHistory, (t: ConversationTurn) => t.speaker === 'assistant' && t.isFinal);
 
         if (fullInputTranscriptRef.current.trim() && lastUserTurnIndex < lastAssistantTurnIndex) {
             const finalUserTurn: ConversationTurn = {
@@ -253,24 +242,65 @@ export const AssistantPanel: React.FC<AssistantPanelProps> = ({
 
         isStoppingRef.current = false;
     }, [conversationHistory, onUpdateUserProfile, setConversationHistory]);
-
+    
+    // Effect to setup/teardown component resources
     useEffect(() => {
         populateDeviceList();
-        
+
+        const initOutputPipeline = () => {
+            if (audioOutputElementRef.current && (!outputAudioContextRef.current || outputAudioContextRef.current.state === 'closed')) {
+                const outCtx = new (window.AudioContext || (window as any).webkitAudioContext)({ sampleRate: 24000 });
+                outputAudioContextRef.current = outCtx;
+                destinationNodeRef.current = outCtx.createMediaStreamDestination();
+                audioOutputElementRef.current.srcObject = destinationNodeRef.current.stream;
+                audioOutputElementRef.current.play().catch(e => console.error("Autoplay was blocked. User interaction is needed.", e));
+            }
+        };
+        initOutputPipeline();
+
+        return () => {
+            stopSession();
+            if (outputAudioContextRef.current && outputAudioContextRef.current.state !== 'closed') {
+                outputAudioContextRef.current.close().catch(console.error);
+            }
+        };
+    }, [populateDeviceList, stopSession]);
+    
+    // Effect to handle changing the output audio device
+    useEffect(() => {
+        const audioEl = audioOutputElementRef.current;
+        if (audioEl && typeof audioEl.setSinkId === 'function' && selectedOutputDevice) {
+            audioEl.setSinkId(selectedOutputDevice)
+                .catch(error => {
+                    console.error('Error setting audio output device:', error);
+                });
+        }
+    }, [selectedOutputDevice]);
+
+    // Effect to play the initial greeting
+    useEffect(() => {
         const playGreeting = async () => {
              if (initialGreeting && !isMuted) {
                 try {
                     setStatus("Rose is greeting you...");
                     const audioData = await generateSpeech(initialGreeting, selectedVoice);
 
-                    const outCtx = new (window.AudioContext || (window as any).webkitAudioContext)({ sampleRate: 24000 });
+                    const outCtx = outputAudioContextRef.current;
+                    if (!outCtx || outCtx.state === 'closed') {
+                        console.error("Output audio context not ready for greeting.");
+                        return;
+                    }
+
                     const buffer = await decodeAudioData(decode(audioData), outCtx, 24000, 1);
                     const source = outCtx.createBufferSource();
                     source.buffer = buffer;
-                    source.connect(outCtx.destination);
+                    if (destinationNodeRef.current) {
+                        source.connect(destinationNodeRef.current);
+                    } else {
+                        source.connect(outCtx.destination);
+                    }
                     source.start();
                     source.onended = () => {
-                         outCtx.close();
                          onGreetingSpoken();
                          setStatus('Idle. Click the mic to start.');
                     };
@@ -280,12 +310,18 @@ export const AssistantPanel: React.FC<AssistantPanelProps> = ({
                 }
             }
         };
-        playGreeting();
+
+        let greetingTimeoutId: number | undefined;
+        if (initialGreeting) {
+            greetingTimeoutId = window.setTimeout(playGreeting, 3000);
+        }
 
         return () => {
-            stopSession();
+            if (greetingTimeoutId) {
+                clearTimeout(greetingTimeoutId);
+            }
         };
-    }, [populateDeviceList, initialGreeting, isMuted, selectedVoice, onGreetingSpoken, stopSession]);
+    }, [initialGreeting, isMuted, selectedVoice, onGreetingSpoken]);
 
 
     const startSession = useCallback(async () => {
@@ -423,19 +459,19 @@ export const AssistantPanel: React.FC<AssistantPanelProps> = ({
                             
                             const audioData = message.serverContent?.modelTurn?.parts?.[0]?.inlineData?.data;
                             if (audioData && !isMuted) {
-                                if (!outputAudioContextRef.current || outputAudioContextRef.current.state === 'closed') {
-                                    outputAudioContextRef.current = new (window.AudioContext || (window as any).webkitAudioContext)({ sampleRate: 24000 });
-                                }
                                 const ctx = outputAudioContextRef.current;
+                                if (!ctx || ctx.state === 'closed') {
+                                    console.error("Output audio context not available for playback.");
+                                    return;
+                                }
+
                                 nextStartTime.current = Math.max(nextStartTime.current, ctx.currentTime);
                                 const audioBuffer = await decodeAudioData(decode(audioData), ctx, 24000, 1);
                                 const sourceNode = ctx.createBufferSource();
                                 sourceNode.buffer = audioBuffer;
                                 
-                                const outputNode = ctx.createGain();
-                                if(destinationNodeRef.current){
-                                    sourceNode.connect(outputNode);
-                                    outputNode.connect(destinationNodeRef.current);
+                                if (destinationNodeRef.current) {
+                                    sourceNode.connect(destinationNodeRef.current);
                                 } else {
                                     sourceNode.connect(ctx.destination);
                                 }
@@ -516,9 +552,6 @@ export const AssistantPanel: React.FC<AssistantPanelProps> = ({
                     <button onClick={onClearConversation} className="text-gray-400 hover:text-white">
                        <TrashIcon className="w-6 h-6" />
                     </button>
-                    <select value={selectedVoice} onChange={(e) => setSelectedVoice(e.target.value)} className="bg-gray-800 border border-gray-700 text-sm rounded p-1">
-                        {AVAILABLE_VOICES.map(v => <option key={v} value={v}>{v}</option>)}
-                    </select>
                 </div>
             </div>
 
@@ -564,6 +597,33 @@ export const AssistantPanel: React.FC<AssistantPanelProps> = ({
                     {isListening ? <StopIcon className="w-10 h-10 text-amber-400" /> : <MicrophoneIcon className="w-10 h-10 text-gray-500" />}
                 </button>
                 <p className="text-sm text-gray-400 mt-2 h-5">{status}</p>
+                 <div className="w-full max-w-sm flex flex-col sm:flex-row gap-2 mt-4">
+                    <div className="flex-1">
+                        <label htmlFor="audio-input" className="text-xs text-gray-500 block text-center sm:text-left">Input Device</label>
+                        <select
+                            id="audio-input"
+                            value={selectedInputDevice}
+                            onChange={(e) => setSelectedInputDevice(e.target.value)}
+                            disabled={isListening}
+                            className="w-full bg-gray-800 border border-gray-700 rounded-md p-1 text-xs text-gray-300 focus:ring-1 focus:ring-amber-500 focus:border-amber-500 disabled:opacity-50 disabled:cursor-not-allowed"
+                        >
+                            {audioInputDevices.length === 0 && <option>No input devices found</option>}
+                            {audioInputDevices.map((d, i) => <option key={d.deviceId} value={d.deviceId}>{d.label || `Microphone ${i + 1}`}</option>)}
+                        </select>
+                    </div>
+                    <div className="flex-1">
+                        <label htmlFor="audio-output" className="text-xs text-gray-500 block text-center sm:text-left">Output Device</label>
+                        <select
+                            id="audio-output"
+                            value={selectedOutputDevice}
+                            onChange={(e) => setSelectedOutputDevice(e.target.value)}
+                            className="w-full bg-gray-800 border border-gray-700 rounded-md p-1 text-xs text-gray-300 focus:ring-1 focus:ring-amber-500 focus:border-amber-500"
+                        >
+                             {audioOutputDevices.length === 0 && <option>No output devices found</option>}
+                            {audioOutputDevices.map((d, i) => <option key={d.deviceId} value={d.deviceId}>{d.label || `Speaker ${i + 1}`}</option>)}
+                        </select>
+                    </div>
+                </div>
                  <audio ref={audioOutputElementRef} autoPlay playsInline style={{ display: 'none' }} />
             </div>
         </div>

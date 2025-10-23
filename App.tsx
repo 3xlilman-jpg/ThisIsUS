@@ -4,6 +4,7 @@ import { FileUpload } from './components/FileUpload';
 import { ResultsDisplay } from './components/ResultsDisplay';
 import { Loader } from './components/Loader';
 import { GuideModal } from './components/GuideModal';
+import { PolicyModal } from './components/PolicyModal';
 import { AssistantPanel } from './components/AssistantPanel';
 import { CulinaryAssistant } from './components/CulinaryAssistant';
 import { UserSelection } from './components/UserSelection';
@@ -23,6 +24,8 @@ const App: React.FC = () => {
   const [isLoading, setIsLoading] = useState(false);
   const [isGeneratingScript, setIsGeneratingScript] = useState(false);
   const [isGuideVisible, setIsGuideVisible] = useState(false);
+  const [isPrivacyModalVisible, setIsPrivacyModalVisible] = useState(false);
+  const [isTermsModalVisible, setIsTermsModalVisible] = useState(false);
   const [conversationHistory, setConversationHistory] = useState<ConversationTurn[]>([]);
   const [userProfile, setUserProfile] = useState<UserProfile>({});
   const [initialGreeting, setInitialGreeting] = useState<string | null>(null);
@@ -245,33 +248,53 @@ const App: React.FC = () => {
 
   const handleShowGuide = () => setIsGuideVisible(true);
   const handleCloseGuide = () => setIsGuideVisible(false);
+  const handleClosePrivacy = () => setIsPrivacyModalVisible(false);
+  const handleCloseTerms = () => setIsTermsModalVisible(false);
 
   if (!currentUser) {
     return <UserSelection onSelectUser={handleSelectUser} />;
   }
 
   return (
-    <div className="min-h-screen bg-transparent font-sans">
+    <div className="min-h-screen bg-transparent font-sans flex flex-col">
       <Header onSwitchUser={handleSwitchUser} activeView={activeView} setActiveView={setActiveView} />
-      <main className="container mx-auto p-4 sm:p-6 lg:p-8">
+      <main className="container mx-auto p-4 sm:p-6 lg:p-8 flex-grow">
         {activeView === 'creative' && (
           <div className="grid grid-cols-1 lg:grid-cols-5 gap-8 items-start">
             {/* Main Content Area */}
             <div className="lg:col-span-3">
               {!imageFile ? (
-                <FileUpload onFileSelect={handleFileSelect} />
+                <div className="max-w-3xl mx-auto text-center">
+                  <h2 className="text-4xl font-extrabold text-amber-400 sm:text-5xl">Your Instant Creative Suite</h2>
+                  <p className="mt-4 text-lg text-gray-400">Describe your product, then upload an image to generate professional visuals and copy in seconds.</p>
+                  
+                  <div className="mt-8 text-left space-y-2">
+                     <label htmlFor="product-description" className="text-lg font-semibold text-gray-300">
+                      1. Tell me about your product
+                     </label>
+                     <textarea
+                        id="product-description"
+                        value={productDescription}
+                        onChange={(e) => setProductDescription(e.target.value)}
+                        placeholder="What is this product called? What does it do? Who is it for? E.g., 'This is the 'Artisan's Chrono', a handcrafted leather watch strap for the modern professional...'"
+                        className="w-full p-3 bg-gray-800 border border-gray-700 rounded-lg focus:ring-2 focus:ring-amber-500 focus:border-amber-500 transition-colors text-gray-300"
+                        rows={4}
+                     />
+                  </div>
+
+                  <FileUpload onFileSelect={handleFileSelect} />
+                </div>
               ) : (
                 <div className="space-y-8 animate-fade-in-up">
                   <div className="grid grid-cols-1 md:grid-cols-3 gap-8 items-start">
                     <div className="md:col-span-1 space-y-4">
                        <img src={imageFile.previewUrl} alt="Original" className="rounded-2xl w-full h-auto object-cover shadow-2xl shadow-black/50" />
-                       <textarea
-                          value={productDescription}
-                          onChange={(e) => setProductDescription(e.target.value)}
-                          placeholder="Add a product description..."
-                          className="w-full p-3 bg-gray-800 border border-gray-700 rounded-lg focus:ring-2 focus:ring-amber-500 focus:border-amber-500 transition-colors text-gray-300"
-                          rows={4}
-                       />
+                       {productDescription && (
+                         <div className="p-3 bg-gray-800 border border-gray-700 rounded-lg">
+                            <h4 className="font-bold text-amber-400 text-sm">Product Description</h4>
+                            <p className="text-gray-300 text-sm mt-1 whitespace-pre-wrap">{productDescription}</p>
+                         </div>
+                       )}
                        <button
                           onClick={() => handleGenerate(imageFile)}
                           disabled={isLoading}
@@ -327,7 +350,93 @@ const App: React.FC = () => {
         {activeView === 'culinary' && <CulinaryAssistant />}
       </main>
 
+      <footer className="w-full text-center p-4 mt-8 border-t border-gray-800 flex-shrink-0">
+          <div className="container mx-auto text-xs text-gray-500">
+              <p>&copy; {new Date().getFullYear()} ThisIsUs Creative Suite. All Rights Reserved.</p>
+              <div className="mt-2 space-x-4">
+                  <button onClick={() => setIsPrivacyModalVisible(true)} className="hover:text-amber-400 transition-colors">Privacy Policy</button>
+                  <span>|</span>
+                  <button onClick={() => setIsTermsModalVisible(true)} className="hover:text-amber-400 transition-colors">Terms of Service</button>
+              </div>
+          </div>
+      </footer>
+
       {isGuideVisible && <GuideModal onClose={handleCloseGuide} />}
+
+      {isPrivacyModalVisible && (
+        <PolicyModal title="Privacy Policy" onClose={handleClosePrivacy}>
+            <div className="space-y-6 text-gray-300">
+              <p className="italic">Last Updated: {new Date().toLocaleDateString('en-US', { year: 'numeric', month: 'long', day: 'numeric' })}</p>
+              
+              <p>This Privacy Policy explains how ThisIsUs Creative Suite ("we," "us," or "our") collects, uses, and discloses your information when you use our application. Your privacy is critically important to us.</p>
+
+              <h3 className="text-xl font-bold text-amber-400">1. Information We Collect</h3>
+              <ul className="list-disc list-inside space-y-2 pl-4">
+                <li><strong>User-Provided Information:</strong> This includes your chosen username, product descriptions, and any text or voice commands you provide to our AI assistant, Rose.</li>
+                <li><strong>Uploaded Content:</strong> We process the images you upload to generate creative assets. These images are sent to Google's Gemini API for processing and are not stored on our servers long-term.</li>
+                <li><strong>Voice Data:</strong> When you use voice login or speak to Rose, your voice data is processed to recognize your name or transcribe your commands. For login, we store a count of voice logins locally to enable features like personalized greetings. For conversation, audio is streamed to the Gemini API for real-time transcription and response.</li>
+                <li><strong>Locally Stored Data:</strong> To provide a personalized experience, we use your browser's `localStorage` to save your conversation history with Rose and your user profile (which is built from your interactions). This data remains on your device and is not transmitted to our servers.</li>
+              </ul>
+
+              <h3 className="text-xl font-bold text-amber-400">2. How We Use Your Information</h3>
+              <ul className="list-disc list-inside space-y-2 pl-4">
+                <li>To operate and provide the core functionalities of the app, such as generating images, marketing copy, and video scripts.</li>
+                <li>To personalize your experience by remembering your conversation history and user profile details.</li>
+                <li>To enable voice interactions with our AI assistant, Rose.</li>
+                <li>To improve our services. We do not use your personal content to train our models without your explicit consent.</li>
+              </ul>
+
+              <h3 className="text-xl font-bold text-amber-400">3. Third-Party Services</h3>
+              <p>We utilize Google's Gemini API to power our AI features. Information you provide (images, text, voice data) is sent to Google for processing. We encourage you to review <a href="https://policies.google.com/privacy" target="_blank" rel="noopener noreferrer" className="text-amber-300 underline">Google's Privacy Policy</a> to understand how they handle data.</p>
+              
+              <h3 className="text-xl font-bold text-amber-400">4. Data Security & Storage</h3>
+              <p>Your conversation history and user profile are stored in your browser's `localStorage`. This means the data resides on your computer and is specific to the browser you use. Clearing your browser's cache or storage will delete this data permanently. We do not have a central server that stores this personal information.</p>
+
+              <h3 className="text-xl font-bold text-amber-400">5. Your Choices</h3>
+              <p>You can clear your conversation history at any time using the "Clear Conversation" button. You can also clear your browser's `localStorage` to completely reset your profile and history for the application.</p>
+              
+              <h3 className="text-xl font-bold text-amber-400">6. Changes to This Policy</h3>
+              <p>We may update this Privacy Policy from time to time. We will notify you of any changes by posting the new policy within the application. You are advised to review this Privacy Policy periodically for any changes.</p>
+            </div>
+        </PolicyModal>
+      )}
+      
+      {isTermsModalVisible && (
+        <PolicyModal title="Terms of Service" onClose={handleCloseTerms}>
+            <div className="space-y-6 text-gray-300">
+                <p className="italic">Last Updated: {new Date().toLocaleDateString('en-US', { year: 'numeric', month: 'long', day: 'numeric' })}</p>
+
+                <p>Welcome to ThisIsUs Creative Suite. By accessing or using our application, you agree to be bound by these Terms of Service ("Terms").</p>
+
+                <h3 className="text-xl font-bold text-amber-400">1. Use of Service</h3>
+                <p>ThisIsUs provides an AI-powered suite of tools for creative marketing. You agree to use our service in compliance with all applicable laws and not for any unlawful purpose.</p>
+
+                <h3 className="text-xl font-bold text-amber-400">2. User-Generated Content</h3>
+                <ul className="list-disc list-inside space-y-2 pl-4">
+                    <li>You retain all ownership rights to the content you upload (e.g., your product images, descriptions).</li>
+                    <li>By using the service, you grant us a worldwide, non-exclusive, royalty-free license to use, reproduce, process, and display your content solely for the purpose of operating, providing, and improving the service for you.</li>
+                    <li>You are solely responsible for the content you upload. You agree not to upload content that is illegal, infringing, defamatory, or obscene.</li>
+                </ul>
+
+                <h3 className="text-xl font-bold text-amber-400">3. AI-Generated Output</h3>
+                <ul className="list-disc list-inside space-y-2 pl-4">
+                    <li>The service uses artificial intelligence to generate content (images, text, scripts). While we strive for high quality, we do not guarantee the accuracy, uniqueness, or suitability of the generated content.</li>
+                    <li>You are responsible for reviewing and validating all AI-generated content before use. We are not liable for any issues arising from the use of this content.</li>
+                    <li>Subject to your compliance with these Terms, we grant you the right to use the AI-generated assets for any legal purpose, including commercial use.</li>
+                </ul>
+
+                <h3 className="text-xl font-bold text-amber-400">4. Disclaimers and Limitation of Liability</h3>
+                <p>THE SERVICE IS PROVIDED "AS IS" AND "AS AVAILABLE" WITHOUT WARRANTIES OF ANY KIND, EITHER EXPRESS OR IMPLIED. TO THE FULLEST EXTENT PERMISSIBLE BY LAW, WE DISCLAIM ALL WARRANTIES, INCLUDING, BUT NOT LIMITED TO, IMPLIED WARRANTIES OF MERCHANTABILITY AND FITNESS FOR A PARTICULAR PURPOSE.</p>
+                <p>IN NO EVENT SHALL THISISUS CREATIVE SUITE OR ITS DEVELOPERS BE LIABLE FOR ANY INDIRECT, INCIDENTAL, SPECIAL, CONSEQUENTIAL, OR PUNITIVE DAMAGES ARISING OUT OF OR IN CONNECTION WITH YOUR USE OF THE SERVICE.</p>
+
+                <h3 className="text-xl font-bold text-amber-400">5. Termination</h3>
+                <p>We reserve the right to terminate or suspend your access to the service at our sole discretion, without prior notice, for conduct that we believe violates these Terms or is harmful to other users of the service, us, or third parties, or for any other reason.</p>
+
+                <h3 className="text-xl font-bold text-amber-400">6. Changes to Terms</h3>
+                <p>We may modify these Terms at any time. We will notify you of any changes by posting the new Terms within the application. Your continued use of the service after such changes constitutes your acceptance of the new Terms.</p>
+            </div>
+        </PolicyModal>
+      )}
     </div>
   );
 };
