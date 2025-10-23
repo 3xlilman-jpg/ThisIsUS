@@ -5,6 +5,7 @@ import { ResultsDisplay } from './components/ResultsDisplay';
 import { Loader } from './components/Loader';
 import { GuideModal } from './components/GuideModal';
 import { PolicyModal } from './components/PolicyModal';
+import { TikTokModal } from './components/TikTokModal';
 import { AssistantPanel } from './components/AssistantPanel';
 import { CulinaryAssistant } from './components/CulinaryAssistant';
 import { UserSelection } from './components/UserSelection';
@@ -26,6 +27,7 @@ const App: React.FC = () => {
   const [isGuideVisible, setIsGuideVisible] = useState(false);
   const [isPrivacyModalVisible, setIsPrivacyModalVisible] = useState(false);
   const [isTermsModalVisible, setIsTermsModalVisible] = useState(false);
+  const [isTikTokModalVisible, setIsTikTokModalVisible] = useState(false);
   const [conversationHistory, setConversationHistory] = useState<ConversationTurn[]>([]);
   const [userProfile, setUserProfile] = useState<UserProfile>({});
   const [initialGreeting, setInitialGreeting] = useState<string | null>(null);
@@ -250,6 +252,8 @@ const App: React.FC = () => {
   const handleCloseGuide = () => setIsGuideVisible(false);
   const handleClosePrivacy = () => setIsPrivacyModalVisible(false);
   const handleCloseTerms = () => setIsTermsModalVisible(false);
+  const handlePostToTikTok = () => setIsTikTokModalVisible(true);
+  const handleCloseTikTokModal = () => setIsTikTokModalVisible(false);
 
   if (!currentUser) {
     return <UserSelection onSelectUser={handleSelectUser} />;
@@ -319,6 +323,7 @@ const App: React.FC = () => {
                           onGenerateScript={handleGenerateScript}
                           isGeneratingScript={isGeneratingScript}
                           onShowGuide={handleShowGuide}
+                          onPostToTikTok={handlePostToTikTok}
                         />
                       )}
                     </div>
@@ -362,6 +367,7 @@ const App: React.FC = () => {
       </footer>
 
       {isGuideVisible && <GuideModal onClose={handleCloseGuide} />}
+      {isTikTokModalVisible && <TikTokModal onClose={handleCloseTikTokModal} variants={generatedVariants} marketingContent={marketingContent} />}
 
       {isPrivacyModalVisible && (
         <PolicyModal title="Privacy Policy" onClose={handleClosePrivacy}>
@@ -389,7 +395,7 @@ const App: React.FC = () => {
               <h3 className="text-xl font-bold text-amber-400">3. Third-Party Services</h3>
               <div className="space-y-4">
                 <p><strong>Google Gemini API:</strong> We utilize Google's Gemini API to power our AI features. Information you provide (images, text, voice data) is sent to Google for processing. We encourage you to review <a href="https://policies.google.com/privacy" target="_blank" rel="noopener noreferrer" className="text-amber-300 underline">Google's Privacy Policy</a> to understand how they handle data.</p>
-                <p><strong>TikTok Integration (Future Feature):</strong> To enable features like "Post to TikTok," we will need to interact with the TikTok platform. When you authorize this feature, information such as the generated video or image content may be shared with TikTok to create a post on your behalf. We recommend you review <a href="https://www.tiktok.com/legal/page/us/privacy-policy/en" target="_blank" rel="noopener noreferrer" className="text-amber-300 underline">TikTok's Privacy Policy</a> to understand how they handle your data.</p>
+                 <p><strong>Interacting with Third-Party Services (TikTok):</strong> When you click the "Post to TikTok" button, the application will guide you on how to manually post your content. This includes opening a new browser tab to the TikTok website. You will be subject to TikTok's terms and privacy policy when you interact with their platform. Our future one-click integration will require authentication with TikTok, and we will update this policy accordingly. We recommend you review <a href="https://www.tiktok.com/legal/page/us/privacy-policy/en" target="_blank" rel="noopener noreferrer" className="text-amber-300 underline">TikTok's Privacy Policy</a>.</p>
               </div>
 
               <h3 className="text-xl font-bold text-amber-400">4. Data Security & Storage</h3>

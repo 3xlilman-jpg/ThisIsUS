@@ -11,6 +11,7 @@ interface ResultsDisplayProps {
     onGenerateScript: () => void;
     isGeneratingScript: boolean;
     onShowGuide: () => void;
+    onPostToTikTok: () => void;
 }
 
 const ResultCard: React.FC<{title: string; icon: React.ReactNode; children: React.ReactNode}> = ({ title, icon, children }) => (
@@ -24,7 +25,7 @@ const ResultCard: React.FC<{title: string; icon: React.ReactNode; children: Reac
 );
 
 
-export const ResultsDisplay: React.FC<ResultsDisplayProps> = ({ variants, marketingContent, marketingSources, videoScript, onGenerateScript, isGeneratingScript, onShowGuide }) => {
+export const ResultsDisplay: React.FC<ResultsDisplayProps> = ({ variants, marketingContent, marketingSources, videoScript, onGenerateScript, isGeneratingScript, onShowGuide, onPostToTikTok }) => {
   const [isPromptsVisible, setIsPromptsVisible] = useState(false);
 
   const handleDownload = (url: string, style: string) => {
@@ -74,10 +75,10 @@ export const ResultsDisplay: React.FC<ResultsDisplayProps> = ({ variants, market
                             View TikTok Prompts
                         </button>
                         <button
-                            disabled
-                            className="w-full sm:w-auto bg-gray-700 text-gray-400 font-bold py-2 px-6 rounded-lg cursor-not-allowed opacity-60"
+                            onClick={onPostToTikTok}
+                            className="w-full sm:w-auto bg-[#ff0050] text-white font-bold py-2 px-6 rounded-lg hover:bg-[#E50048] transition-all duration-300 ease-in-out"
                         >
-                            Post To TIKTOK (COMING SOON)
+                            Post to TikTok
                         </button>
                     </div>
                 </div>
